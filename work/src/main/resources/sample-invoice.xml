@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<invoice>
+    <invoiceNumber>INV20240513001</invoiceNumber>
+    <invoiceCode>044001900111</invoiceCode>
+    <sellerName>深圳市科技有限公司</sellerName>
+    <sellerTaxNo>91440300MA5ABCD123</sellerTaxNo>
+    <buyerName>北京贸易有限公司</buyerName>
+    <buyerTaxNo>91110108MA5EFGH456</buyerTaxNo>
+    <amount>10000.00</amount>
+    <taxAmount>1300.00</taxAmount>
+    <totalAmount>11300.00</totalAmount>
+    <invoiceDate>2024-05-13 10:30:00</invoiceDate>
+    <invoiceType>增值税电子发票</invoiceType>
+    <remark>办公设备采购</remark>
+</invoice>
