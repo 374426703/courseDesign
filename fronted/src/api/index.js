@@ -65,5 +65,14 @@ export default {
   // 区块详情
   getBlockDetail(id) {
     return api.get(`/blockchain/block/${id}`)
+  },
+  // OCR 发票识别
+  ocrConvert(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/ocr/convert', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000
+    })
   }
 }

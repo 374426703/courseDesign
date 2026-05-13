@@ -26,14 +26,53 @@
       </div>
     </div>
 
-    <!-- 步骤1：输入XML -->
+    <!-- 步骤1：输入XML / OCR上传 -->
     <div v-show="activeStep === 0" class="step-panel">
       <div class="panel-header">
         <span class="panel-badge">步骤 1</span>
-        <h3>输入或粘贴发票 XML 内容</h3>
+        <h3>输入发票 XML 或上传发票图片自动识别</h3>
       </div>
       <div class="panel-body">
-        <el-input v-model="xmlContent" type="textarea" :rows="14"
+        <!-- OCR 上传区域 -->
+        <div class="ocr-upload-box"
+          @dragover.prevent="dragOver = true"
+          @dragleave="dragOver = false"
+          @drop.prevent="onDrop"
+          :class="{ 'drag-over': dragOver }">
+          <div class="upload-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <div class="upload-text">
+            <strong>拖拽发票图片到此处</strong>
+            <span>或点击下方按钮选择文件，支持 JPG / PNG / BMP</span>
+          </div>
+          <div class="upload-actions">
+            <el-upload
+              ref="uploadRef"
+              :auto-upload="false"
+              :show-file-list="false"
+              :on-change="onFileSelect"
+              accept="image/jpeg,image/png,image/bmp"
+              class="ocr-upload-btn"
+            >
+              <el-button size="large" class="btn-outline" :loading="ocrLoading">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6M3 15h6"/></svg>
+                {{ ocrLoading ? '识别中...' : '选择发票图片' }}
+              </el-button>
+            </el-upload>
+          </div>
+          <div v-if="ocrFileName" class="upload-file-info">
+            {{ ocrFileName }}
+          </div>
+        </div>
+
+        <div class="xml-input-divider">
+          <span class="divider-line"></span>
+          <span class="divider-text">或手动输入 / 编辑 XML</span>
+          <span class="divider-line"></span>
+        </div>
+
+        <el-input v-model="xmlContent" type="textarea" :rows="10"
           placeholder="在此粘贴电子发票的 XML 内容..."
           class="xml-input" />
         <div class="action-bar">
@@ -193,6 +232,12 @@ const digitalFingerprint = ref('')
 const digitalSignature = ref('')
 const cipherText = ref('')
 
+// OCR 状态
+const ocrLoading = ref(false)
+const dragOver = ref(false)
+const ocrFileName = ref('')
+const uploadRef = ref(null)
+
 const sampleXml = `<?xml version="1.0" encoding="UTF-8"?>
 <invoice>
     <invoiceNumber>INV20240513001</invoiceNumber>
@@ -253,6 +298,44 @@ function goToReceiver() {
 }
 
 function reset() { activeStep.value = 0; digitalFingerprint.value = ''; digitalSignature.value = ''; cipherText.value = '' }
+
+// === OCR 发票识别 ===
+async function onFileSelect(uploadFile) {
+  if (!uploadFile || !uploadFile.raw) return
+  await doOcr(uploadFile.raw)
+}
+
+async function onDrop(e) {
+  dragOver.value = false
+  const file = e.dataTransfer?.files?.[0]
+  if (file) await doOcr(file)
+}
+
+async function doOcr(file) {
+  const validTypes = ['image/jpeg', 'image/png', 'image/bmp']
+  if (!validTypes.includes(file.type)) {
+    ElMessage.warning('仅支持 JPG / PNG / BMP 格式的发票图片')
+    return
+  }
+
+  ocrFileName.value = file.name
+  ocrLoading.value = true
+  try {
+    const res = await api.ocrConvert(file)
+    if (res.data.code === 200) {
+      xmlContent.value = res.data.data.xmlContent
+      ElMessage.success('OCR 识别成功，XML 已自动填入')
+    } else {
+      ElMessage.error(res.data.message || '识别失败')
+    }
+  } catch (e) {
+    const msg = e.response?.data?.message || e.message
+    ElMessage.error('OCR 识别失败: ' + msg)
+    console.error('OCR error:', e)
+  } finally {
+    ocrLoading.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -307,6 +390,31 @@ function reset() { activeStep.value = 0; digitalFingerprint.value = ''; digitalS
 .panel-body { padding: 16px 24px 24px; }
 
 .xml-input :deep(textarea) { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.6; border-radius: 8px; }
+
+/* OCR 上传区域 */
+.ocr-upload-box {
+  border: 2px dashed #CBD5E1; border-radius: 12px; padding: 28px 24px;
+  text-align: center; transition: all .25s; margin-bottom: 20px;
+  background: #FAFBFC;
+}
+.ocr-upload-box.drag-over {
+  border-color: #4F6EF7; background: #EEF1FE;
+}
+.upload-icon { color: #94A3B8; margin-bottom: 8px; }
+.drag-over .upload-icon { color: #4F6EF7; }
+.upload-text strong { display: block; font-size: 15px; color: #475569; margin-bottom: 4px; }
+.upload-text span { font-size: 12px; color: #94A3B8; }
+.upload-actions { margin-top: 16px; }
+.upload-file-info {
+  margin-top: 10px; font-size: 12px; color: #4F6EF7;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.xml-input-divider {
+  display: flex; align-items: center; gap: 16px; margin: 0 0 16px;
+}
+.divider-line { flex: 1; height: 1px; background: #E2E8F0; }
+.divider-text { font-size: 12px; color: #94A3B8; white-space: nowrap; }
+.ocr-upload-btn { display: inline-flex; }
 
 .info-banner {
   display: flex; align-items: center; gap: 10px; padding: 12px 16px;
